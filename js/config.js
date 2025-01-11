@@ -1,8 +1,8 @@
 const CONFIG = {
     SERVER: {
-        BASE_URL: "http://localhost:5001",
-        API_BASE_URL: "http://localhost:5001/api/v1",
-        SOCKET_URL: "http://localhost:5001",
+        BASE_URL: "https://bice-driver-server.onrender.com",
+        API_BASE_URL: "https://bice-driver-server.onrender.com/api/v1",
+        SOCKET_URL: "https://bice-driver-server.onrender.com",
     },
     MAP: {
         TILE_LAYER_URL: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
