@@ -1,56 +1,99 @@
+import { appState } from "./driver-app-state.js";
+import { updateDriverStatus } from "./driver-tracking.js";
+import { startTracking, stopTracking } from "./driver-tracking.js";
+
 // Toggle app function
-async function toggleApp() {
-    const toggleBtn = document.getElementById("toggleAppBtn");
-    const offlineBtn = document.getElementById("offlineBtn");
-    const onlineStatus = document.getElementById("onlineStatus");
-    const driverId = document.getElementById("driverSelect").value;
+export async function toggleApp() {
+    try {
+        const toggleBtn = document.getElementById("toggleAppBtn");
+        const offlineBtn = document.getElementById("offlineBtn");
+        const onlineStatus = document.getElementById("onlineStatus");
+        const driverId = document.getElementById("driverSelect").value;
 
-    if (!appState.isAppEnabled) {
-        // Enable app
-        appState.isAppEnabled = true;
-        appState.isOnline = true;
-        toggleBtn.style.display = "none";
-        offlineBtn.style.display = "block";
+        if (!appState.isAppEnabled) {
+            // Enable app
+            appState.isAppEnabled = true;
+            appState.isOnline = true;
 
-        onlineStatus.textContent = "Online";
-        onlineStatus.classList.remove("bg-red-100", "text-red-800");
-        onlineStatus.classList.add("bg-green-100", "text-green-800");
+            // Update UI
+            toggleBtn.textContent = "Disable App";
+            toggleBtn.classList.remove("bg-blue-500");
+            toggleBtn.classList.add("bg-red-500");
+            offlineBtn.style.display = "inline-block";
 
-        await updateDriverStatus(driverId, "online");
-        await startTracking();
-        updateStatus("success", "App is enabled and ready for requests");
+            onlineStatus.textContent = "Online";
+            onlineStatus.classList.remove("bg-red-100", "text-red-800");
+            onlineStatus.classList.add("bg-green-100", "text-green-800");
+
+            // Update driver status and start tracking
+            await updateDriverStatus(driverId, "online");
+            await startTracking();
+            updateStatus("App is enabled and ready for requests", "success");
+        } else {
+            // Disable app
+            appState.isAppEnabled = false;
+            appState.isOnline = false;
+
+            // Update UI
+            toggleBtn.textContent = "Enable App";
+            toggleBtn.classList.remove("bg-red-500");
+            toggleBtn.classList.add("bg-blue-500");
+            offlineBtn.style.display = "none";
+
+            onlineStatus.textContent = "Offline";
+            onlineStatus.classList.remove("bg-green-100", "text-green-800");
+            onlineStatus.classList.add("bg-red-100", "text-red-800");
+
+            // Update driver status and stop tracking
+            await updateDriverStatus(driverId, "offline");
+            stopTracking();
+            updateStatus("App is disabled", "info");
+        }
+    } catch (error) {
+        console.error("Error toggling app:", error);
+        showNotification("Error", "Failed to toggle app state");
     }
 }
 
 // Go offline function
-async function goOffline() {
-    const toggleBtn = document.getElementById("toggleAppBtn");
-    const offlineBtn = document.getElementById("offlineBtn");
-    const onlineStatus = document.getElementById("onlineStatus");
-    const driverId = document.getElementById("driverSelect").value;
+export async function goOffline() {
+    try {
+        const toggleBtn = document.getElementById("toggleAppBtn");
+        const offlineBtn = document.getElementById("offlineBtn");
+        const onlineStatus = document.getElementById("onlineStatus");
+        const driverId = document.getElementById("driverSelect").value;
 
-    // Check if we can go offline
-    if (appState.currentRideRequest || appState.currentTrip) {
-        showNotification(
-            "Cannot Go Offline",
-            "You cannot go offline while in an active trip or ride request"
-        );
-        return;
+        // Check if we can go offline
+        if (appState.currentRideRequest || appState.currentTrip) {
+            showNotification(
+                "Cannot Go Offline",
+                "You cannot go offline while in an active trip or ride request"
+            );
+            return;
+        }
+
+        // Disable app
+        appState.isAppEnabled = false;
+        appState.isOnline = false;
+
+        // Update UI
+        toggleBtn.textContent = "Enable App";
+        toggleBtn.classList.remove("bg-red-500");
+        toggleBtn.classList.add("bg-blue-500");
+        offlineBtn.style.display = "none";
+
+        onlineStatus.textContent = "Offline";
+        onlineStatus.classList.remove("bg-green-100", "text-green-800");
+        onlineStatus.classList.add("bg-red-100", "text-red-800");
+
+        // Update driver status and stop tracking
+        await updateDriverStatus(driverId, "offline");
+        stopTracking();
+        updateStatus("App is disabled", "info");
+    } catch (error) {
+        console.error("Error going offline:", error);
+        showNotification("Error", "Failed to go offline");
     }
-
-    // Disable app
-    appState.isAppEnabled = false;
-    appState.isOnline = false;
-    toggleBtn.style.display = "block";
-    offlineBtn.style.display = "none";
-
-    onlineStatus.textContent = "Offline";
-    onlineStatus.classList.remove("bg-green-100", "text-green-800");
-    onlineStatus.classList.add("bg-red-100", "text-red-800");
-
-    await updateDriverStatus(driverId, "offline");
-    await stopTracking();
-    updateStatus("info", "App is disabled");
 }
 
 // Update status message

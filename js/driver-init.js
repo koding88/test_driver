@@ -2,7 +2,7 @@ import { initMap } from "./driver-map.js";
 import { initializeApp } from "./driver-app-state.js";
 import { startTrip, endTrip, notifyArrival } from "./driver-trip.js";
 import { handleRideAccept, handleRideReject } from "./driver-ride-request.js";
-import { toggleApp, goOffline } from "./driver-tracking.js";
+import { toggleApp, goOffline } from "./driver-ui.js";
 
 // Initialize the application
 window.onload = async function () {
