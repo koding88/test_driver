@@ -228,6 +228,23 @@ export async function checkDriverActiveTrip(driverId) {
         const activeData = await activeResponse.json();
 
         if (activeData.payload) {
+            // Set app to enabled state since driver has active trip
+            appState.isAppEnabled = true;
+
+            // Update UI to show online status
+            const toggleBtn = document.getElementById("toggleAppBtn");
+            const offlineBtn = document.getElementById("offlineBtn");
+            const onlineStatus = document.getElementById("onlineStatus");
+
+            toggleBtn.textContent = "Disable App";
+            toggleBtn.classList.remove("bg-blue-500");
+            toggleBtn.classList.add("bg-red-500");
+            offlineBtn.style.display = "inline-block";
+
+            onlineStatus.textContent = "Online";
+            onlineStatus.classList.remove("bg-red-100", "text-red-800");
+            onlineStatus.classList.add("bg-green-100", "text-green-800");
+
             const trip = activeData.payload;
             appState.currentRideRequest = trip;
 
@@ -243,6 +260,25 @@ export async function checkDriverActiveTrip(driverId) {
 
             const tripDetails = tripData.payload;
 
+            // Start tracking first to get current location
+            await startTracking();
+
+            // Wait for current location to be available
+            await new Promise((resolve) => {
+                const checkLocation = setInterval(() => {
+                    if (appState.currentLocation) {
+                        clearInterval(checkLocation);
+                        resolve();
+                    }
+                }, 100);
+            });
+
+            // Remove existing route if any
+            if (appState.currentRoute) {
+                map.removeControl(appState.currentRoute);
+                appState.currentRoute = null;
+            }
+
             // Restore UI state based on trip status
             if (tripDetails.status === "assigned") {
                 // Show arrival button
@@ -251,36 +287,43 @@ export async function checkDriverActiveTrip(driverId) {
                 document.getElementById("startTripBtn").style.display = "none";
                 document.getElementById("endTripBtn").style.display = "none";
 
+                updateStatus("Heading to pickup location", "info");
+
                 // Create route to pickup location
                 const pickupCoords = tripDetails.pickup_location.coordinates;
 
-                if (appState.currentLocation) {
-                    currentRoute = L.Routing.control({
-                        waypoints: [
-                            L.latLng(
-                                appState.currentLocation.latitude,
-                                appState.currentLocation.longitude
-                            ),
-                            L.latLng(pickupCoords[1], pickupCoords[0]),
-                        ],
-                        router: L.Routing.osrmv1({
-                            serviceUrl: CONFIG.MAP.ROUTING_SERVICE_URL,
-                            profile: "driving",
-                        }),
-                        lineOptions: {
-                            styles: [
-                                { color: "#4CAF50", opacity: 0.8, weight: 6 },
-                            ],
-                        },
-                        show: false,
-                        addWaypoints: false,
-                        draggableWaypoints: false,
-                        fitSelectedRoutes: true,
-                    }).addTo(map);
+                // Add passenger marker at pickup location
+                updatePassengerLocation([pickupCoords[1], pickupCoords[0]]);
 
-                    // Add passenger marker
-                    updatePassengerLocation([pickupCoords[1], pickupCoords[0]]);
-                }
+                // Create route to pickup
+                appState.currentRoute = L.Routing.control({
+                    waypoints: [
+                        L.latLng(
+                            appState.currentLocation.latitude,
+                            appState.currentLocation.longitude
+                        ),
+                        L.latLng(pickupCoords[1], pickupCoords[0]),
+                    ],
+                    router: L.Routing.osrmv1({
+                        serviceUrl: CONFIG.MAP.ROUTING_SERVICE_URL,
+                        profile: "driving",
+                    }),
+                    lineOptions: {
+                        styles: [{ color: "#4CAF50", opacity: 0.8, weight: 6 }],
+                    },
+                    show: false,
+                    addWaypoints: false,
+                    draggableWaypoints: false,
+                    fitSelectedRoutes: true,
+                }).addTo(map);
+
+                // Fit map to show route
+                appState.currentRoute.on("routesfound", function (e) {
+                    const bounds = L.latLngBounds(
+                        e.routes[0].waypoints.map((wp) => wp.latLng)
+                    );
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                });
             } else if (tripDetails.status === "in_progress") {
                 // Show end trip button
                 document.getElementById("arrivalBtn").style.display = "none";
@@ -288,44 +331,55 @@ export async function checkDriverActiveTrip(driverId) {
                 document.getElementById("endTripBtn").style.display =
                     "inline-block";
 
+                updateStatus(
+                    "Trip in progress - Heading to destination",
+                    "info"
+                );
+
                 tripStarted = true;
 
                 // Create route to dropoff location
                 const dropoffCoords = tripDetails.dropoff_location.coordinates;
 
-                if (appState.currentLocation) {
-                    currentRoute = L.Routing.control({
-                        waypoints: [
-                            L.latLng(
-                                appState.currentLocation.latitude,
-                                appState.currentLocation.longitude
-                            ),
-                            L.latLng(dropoffCoords[1], dropoffCoords[0]),
-                        ],
-                        router: L.Routing.osrmv1({
-                            serviceUrl: CONFIG.MAP.ROUTING_SERVICE_URL,
-                            profile: "driving",
-                        }),
-                        lineOptions: {
-                            styles: [
-                                { color: "#4CAF50", opacity: 0.8, weight: 6 },
-                            ],
-                        },
-                        show: false,
-                        addWaypoints: false,
-                        draggableWaypoints: false,
-                        fitSelectedRoutes: true,
-                    }).addTo(map);
+                // Add passenger marker at dropoff location
+                updatePassengerLocation([dropoffCoords[1], dropoffCoords[0]]);
 
-                    // Add passenger marker
-                    updatePassengerLocation([
-                        dropoffCoords[1],
-                        dropoffCoords[0],
-                    ]);
-                }
+                // Create route to destination
+                appState.currentRoute = L.Routing.control({
+                    waypoints: [
+                        L.latLng(
+                            appState.currentLocation.latitude,
+                            appState.currentLocation.longitude
+                        ),
+                        L.latLng(dropoffCoords[1], dropoffCoords[0]),
+                    ],
+                    router: L.Routing.osrmv1({
+                        serviceUrl: CONFIG.MAP.ROUTING_SERVICE_URL,
+                        profile: "driving",
+                    }),
+                    lineOptions: {
+                        styles: [{ color: "#4CAF50", opacity: 0.8, weight: 6 }],
+                    },
+                    show: false,
+                    addWaypoints: false,
+                    draggableWaypoints: false,
+                    fitSelectedRoutes: true,
+                }).addTo(map);
+
+                // Fit map to show route
+                appState.currentRoute.on("routesfound", function (e) {
+                    const bounds = L.latLngBounds(
+                        e.routes[0].waypoints.map((wp) => wp.latLng)
+                    );
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                });
             }
+
+            // Update driver status to online
+            await updateDriverStatus(driverId, "online");
         }
     } catch (error) {
         console.error("Error checking driver's active trip:", error);
+        showNotification("Error", "Failed to restore active trip state");
     }
 }
