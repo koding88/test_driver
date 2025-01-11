@@ -85,12 +85,9 @@ socket.on("new_ride_request", async (data) => {
         );
 
         console.log(`Distance to pickup: ${distance}m`);
-        if (distance <= 2000) {
-            pendingRideRequest = data;
-            showRideRequestDialog(data, distance);
-        } else {
-            console.log("Ride request too far away");
-        }
+        // Accept all ride requests regardless of distance
+        pendingRideRequest = data;
+        showRideRequestDialog(data, distance);
     } else {
         console.log("Already has active request or no driver selected");
     }
